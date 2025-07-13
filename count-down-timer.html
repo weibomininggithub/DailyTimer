@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Countdown Timer Application</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js for sound -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles for the timer application */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom font for the timer display to give it a digital clock feel */
+        .font-digital {
+            font-family: 'Orbitron', sans-serif; /* A good-looking digital-style font */
+        }
+        /* Adding a subtle background pattern */
+        body {
+            background-color: #111827; /* Dark gray background */
+            background-image: radial-gradient(#374151 1px, transparent 1px);
+            background-size: 16px 16px;
+        }
+        /* Styling for the main timer container for a neomorphic look */
+        .timer-container {
+            background: #1f2937; /* Gray-800 */
+            border-radius: 2rem;
+            box-shadow: 12px 12px 24px #111827, -12px -12px 24px #374151;
+        }
+        /* Button styles for a consistent and modern look */
+        .btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        /* Animation for the timer finished alert */
+        @keyframes flash {
+            0%, 100% { color: #34d399; } /* Emerald 400 */
+            50% { color: #f87171; } /* Red 400 */
+        }
+        .timer-finished {
+            animation: flash 1s infinite;
+        }
+    </style>
+    <!-- Font for digital display -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-900 flex items-center justify-center min-h-screen">
+
+    <!-- Main container for the timer -->
+    <div class="timer-container w-full max-w-lg p-10 text-center">
+        <h1 class="text-4xl font-bold text-white mb-8">Countdown Timer</h1>
+
+        <!-- Input for setting the timer -->
+        <div class="mb-8 flex justify-center items-center space-x-4">
+            <input type="number" id="time-input" placeholder="Enter time" class="bg-gray-700 text-white text-center w-40 px-4 py-3 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 transition">
+            <select id="unit-select" class="bg-gray-700 text-white px-4 py-3 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 transition">
+                <option value="minutes">Minutes</option>
+                <option value="seconds">Seconds</option>
+            </select>
+        </div>
+        
+        <!-- Timer display with its own background -->
+        <div id="timer-display" class="bg-gray-800 p-4 rounded-2xl text-7xl font-digital text-emerald-400 mb-10 tracking-wider inline-block shadow-inner">
+            00:00:00
+        </div>
+
+        <!-- Control buttons -->
+        <div class="flex justify-center space-x-5">
+            <!-- Start/Resume Button -->
+            <button id="start-btn" class="btn bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full text-xl shadow-lg">
+                Start
+            </button>
+            <!-- Stop/Pause Button -->
+            <button id="stop-btn" class="btn bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-8 rounded-full text-xl shadow-lg">
+                Stop
+            </button>
+            <!-- Reset Button -->
+            <button id="reset-btn" class="btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-4 px-8 rounded-full text-xl shadow-lg">
+                Reset
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // DOM element references
+        const timerDisplay = document.getElementById('timer-display');
+        const timeInput = document.getElementById('time-input');
+        const unitSelect = document.getElementById('unit-select');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const resetBtn = document.getElementById('reset-btn');
+
+        // Timer state variables
+        let timerInterval = null;
+        let totalSeconds = 0;
+        let isRunning = false;
+        let initialTime = 0;
+
+        /**
+         * Formats a number to be two digits by adding a leading zero if needed.
+         * @param {number} num - The number to format.
+         * @returns {string} The formatted two-digit string.
+         */
+        function formatTime(num) {
+            return num.toString().padStart(2, '0');
+        }
+
+        /**
+         * Updates the timer display with the current time.
+         */
+        function updateDisplay() {
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+
+            timerDisplay.textContent = `${formatTime(hours)}:${formatTime(minutes)}:${formatTime(seconds)}`;
+        }
+
+        /**
+         * Sets the initial time for the countdown based on input and selected unit.
+         */
+        function setTimer() {
+            stopTimer(); // Stop any existing timer
+            timerDisplay.classList.remove('timer-finished'); // Remove finished animation
+            const timeValue = parseInt(timeInput.value, 10);
+            const unit = unitSelect.value;
+
+            if (isNaN(timeValue) || timeValue <= 0) {
+                // If input is invalid, reset to 0
+                totalSeconds = 0;
+                initialTime = 0;
+                timeInput.value = ''; // Clear input
+            } else {
+                // Calculate total seconds based on the selected unit
+                if (unit === 'minutes') {
+                    totalSeconds = timeValue * 60;
+                } else { // 'seconds'
+                    totalSeconds = timeValue;
+                }
+                initialTime = totalSeconds;
+            }
+            updateDisplay();
+            startBtn.disabled = (totalSeconds === 0);
+        }
+
+        /**
+         * Starts or resumes the countdown.
+         */
+        function startTimer() {
+            if (isRunning || totalSeconds <= 0) return;
+            
+            // Start Tone.js context on user action
+            Tone.start();
+
+            isRunning = true;
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            timeInput.disabled = true;
+            unitSelect.disabled = true;
+
+            timerInterval = setInterval(() => {
+                totalSeconds--;
+                updateDisplay();
+
+                if (totalSeconds <= 0) {
+                    finishTimer();
+                }
+            }, 1000);
+        }
+
+        /**
+         * Stops or pauses the timer.
+         */
+        function stopTimer() {
+            if (!isRunning) return;
+            isRunning = false;
+            clearInterval(timerInterval);
+            startBtn.disabled = (totalSeconds === 0);
+            stopBtn.disabled = true;
+            timeInput.disabled = false;
+            unitSelect.disabled = false;
+        }
+
+        /**
+         * Resets the timer to the last set value or to zero.
+         */
+        function resetTimer() {
+            stopTimer();
+            timerDisplay.classList.remove('timer-finished');
+            totalSeconds = initialTime; // Reset to the initial time set by the user
+            updateDisplay();
+            startBtn.disabled = (totalSeconds === 0);
+        }
+
+        /**
+         * Handles the timer finishing.
+         */
+        function finishTimer() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            // Play a sound notification
+            const synth = new Tone.Synth().toDestination();
+            synth.triggerAttackRelease("C5", "8n", Tone.now());
+            synth.triggerAttackRelease("G5", "8n", Tone.now() + 0.2);
+
+            // Visual notification
+            timerDisplay.classList.add('timer-finished');
+
+            // Reset buttons and inputs
+            startBtn.disabled = true;
+            stopBtn.disabled = true;
+            timeInput.disabled = false;
+            unitSelect.disabled = false;
+        }
+
+        // --- Event Listeners ---
+        timeInput.addEventListener('input', setTimer);
+        unitSelect.addEventListener('change', setTimer);
+        startBtn.addEventListener('click', startTimer);
+        stopBtn.addEventListener('click', stopTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        // --- Initial State ---
+        // Set initial button states on page load
+        startBtn.disabled = true;
+        stopBtn.disabled = true;
+        updateDisplay(); // Initialize display
+    </script>
+
+</body>
+</html>

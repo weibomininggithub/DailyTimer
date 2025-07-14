@@ -101,7 +101,22 @@
 
         // Initialize Firebase application
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // Get app ID from environment or use default
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}'); // Parse Firebase config
+        let firebaseConfig = {};
+        try {
+            // Attempt to parse the provided firebase config
+            firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        } catch (e) {
+            console.error("Error parsing __firebase_config. Falling back to empty config.", e);
+            firebaseConfig = {}; // Fallback to an empty object if parsing fails
+        }
+
+        // Ensure projectId is present. If not, provide a placeholder to prevent initialization errors.
+        // This is a workaround for cases where __firebase_config might be incomplete.
+        if (!firebaseConfig.projectId) {
+            console.warn("Firebase 'projectId' not found in __firebase_config. Using a placeholder 'your-project-id'. " +
+                         "Please ensure __firebase_config is correctly set in your environment for full functionality.");
+            firebaseConfig.projectId = 'your-project-id'; // Placeholder to prevent Firebase initialization error
+        }
 
         window.firebaseApp = initializeApp(firebaseConfig); // Initialize the Firebase app
         window.db = getFirestore(window.firebaseApp); // Get the Firestore instance
@@ -505,6 +520,9 @@
             const today = new Date().toISOString().slice(0, 10); // Get today's date in YYYY-MM-DD format
             let storedState = null; // Variable to hold data fetched from Firestore
 
+            console.log("--- Initializing Timer ---");
+            console.log("Current Date (today):", today);
+
             try {
                 // Get a reference to the Firestore document for the timer state
                 const timerDocRef = window.doc(window.db, TIMER_STATE_COLLECTION_PATH, 'data');
@@ -516,6 +534,7 @@
                     console.log("Loaded state from Firestore:", storedState);
                     // Log the last access date for debugging
                     console.log("Last Access Date (from Firestore):", storedState.lastAccessDate);
+                    console.log("Comparison: storedState.lastAccessDate === today ->", storedState.lastAccessDate === today);
                 } else {
                     console.log("No timer state found in Firestore for this user.");
                 }
@@ -530,7 +549,7 @@
                 initialTime = storedState.initialSetTime || 0; // Use stored initial set time
                 timeInput.value = storedState.timeInputValue || ''; // Restore input field value
                 unitSelect.value = storedState.unitSelectValue || 'minutes'; // Restore unit select value
-                console.log("Resuming timer from saved state for today.");
+                console.log("Resuming timer from saved state for today. totalSeconds:", totalSeconds);
             } else {
                 // If it's a new day or no state found, initialize to 30 minutes automatically
                 console.log("New day or no stored state. Initializing to 30 minutes.");
@@ -540,6 +559,7 @@
                 initialTime = 30 * 60; // Set initialTime for reset
                 // Save this new initial state to Firestore
                 saveTimerStateToFirestore(totalSeconds, initialTime, timeInput.value, unitSelect.value, today);
+                console.log("Timer initialized to 30 minutes. totalSeconds:", totalSeconds);
             }
 
             updateDisplay(); // Ensure the timer display is updated with the loaded/initialized time

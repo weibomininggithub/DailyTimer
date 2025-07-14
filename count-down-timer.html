@@ -53,11 +53,36 @@
         .timer-finished {
             animation: flash 1s infinite;
         }
+        /* Modal specific styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: #1f2937;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            max-width: 90%;
+            width: 400px;
+            text-align: center;
+        }
     </style>
     <!-- Font for digital display -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 </head>
-<body class="bg-gray-900 flex items-center justify-center min-h-screen">
+<body class="bg-gray-900 flex items-center justify-center min-h-screen relative">
+
+    <!-- Current Date Display -->
+    <div id="current-date" class="absolute top-4 left-4 text-white text-sm opacity-75"></div>
 
     <!-- Main container for the timer -->
     <div class="timer-container w-full max-w-lg p-10 text-center">
@@ -94,6 +119,23 @@
         </div>
     </div>
 
+    <!-- Password Verification Modal -->
+    <div id="password-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 class="text-white text-2xl font-bold mb-6">Enter Password</h2>
+            <input type="password" id="password-input" placeholder="Password" class="bg-gray-700 text-white text-center w-full px-4 py-3 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 transition mb-4">
+            <p id="password-error" class="text-red-400 text-sm mb-4 hidden">Incorrect password. Please try again.</p>
+            <div class="flex justify-center space-x-4">
+                <button id="modal-submit-btn" class="btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg">
+                    Submit
+                </button>
+                <button id="modal-cancel-btn" class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // DOM element references
         const timerDisplay = document.getElementById('timer-display');
@@ -102,12 +144,30 @@
         const startBtn = document.getElementById('start-btn');
         const stopBtn = document.getElementById('stop-btn');
         const resetBtn = document.getElementById('reset-btn');
+        const currentDateDisplay = document.getElementById('current-date');
+
+        // Modal DOM elements
+        const passwordModal = document.getElementById('password-modal');
+        const passwordInput = document.getElementById('password-input');
+        const passwordError = document.getElementById('password-error');
+        const modalSubmitBtn = document.getElementById('modal-submit-btn');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
 
         // Timer state variables
         let timerInterval = null;
         let totalSeconds = 0;
         let isRunning = false;
-        let initialTime = 0;
+        let initialTime = 0; // Stores the last user-set time for reset
+        const RESET_PASSWORD = "baba&mama"; // The password for resetting
+
+        // Constants for localStorage keys
+        const LAST_ACCESS_DATE_KEY = 'lastAccessDate';
+        const INITIAL_TIMER_VALUE_KEY = 'initialTimerValue'; // To store the last set time by user
+
+        // New variables for password verification context
+        let currentPasswordAction = null; // 'reset' or 'time-change'
+        let pendingTimeChangeValue = null;
+        let pendingTimeUnit = null;
 
         /**
          * Formats a number to be two digits by adding a leading zero if needed.
@@ -130,30 +190,36 @@
         }
 
         /**
-         * Sets the initial time for the countdown based on input and selected unit.
+         * Updates the timer's internal state and display based on provided values.
+         * This function does NOT trigger password verification. It's used internally
+         * after verification or for automatic initialization.
+         * @param {number} timeValue - The numerical value for the timer.
+         * @param {string} unit - The unit ('minutes' or 'seconds').
          */
-        function setTimer() {
+        function applyTimerValue(timeValue, unit) {
             stopTimer(); // Stop any existing timer
             timerDisplay.classList.remove('timer-finished'); // Remove finished animation
-            const timeValue = parseInt(timeInput.value, 10);
-            const unit = unitSelect.value;
 
             if (isNaN(timeValue) || timeValue <= 0) {
-                // If input is invalid, reset to 0
                 totalSeconds = 0;
                 initialTime = 0;
-                timeInput.value = ''; // Clear input
+                timeInput.value = ''; // Clear input if invalid
             } else {
-                // Calculate total seconds based on the selected unit
                 if (unit === 'minutes') {
                     totalSeconds = timeValue * 60;
-                } else { // 'seconds'
+                } else {
                     totalSeconds = timeValue;
                 }
                 initialTime = totalSeconds;
             }
             updateDisplay();
             startBtn.disabled = (totalSeconds === 0);
+
+            // Store the initial time in localStorage
+            localStorage.setItem(INITIAL_TIMER_VALUE_KEY, JSON.stringify({
+                value: timeValue, // Store the actual value passed, not from input directly
+                unit: unit
+            }));
         }
 
         /**
@@ -195,14 +261,70 @@
         }
 
         /**
-         * Resets the timer to the last set value or to zero.
+         * Performs the actual reset of the timer to its initial set value.
+         * This function does NOT trigger password verification.
          */
-        function resetTimer() {
+        function performReset() {
             stopTimer();
             timerDisplay.classList.remove('timer-finished');
             totalSeconds = initialTime; // Reset to the initial time set by the user
             updateDisplay();
             startBtn.disabled = (totalSeconds === 0);
+        }
+
+        /**
+         * Handles the manual input/change of time or unit, prompting for password.
+         */
+        function handleManualTimeChange() {
+            // Store the current (pre-change) values from the input fields
+            pendingTimeChangeValue = parseInt(timeInput.value, 10);
+            pendingTimeUnit = unitSelect.value;
+            showPasswordModal('time-change');
+        }
+
+        /**
+         * Shows the password verification modal.
+         * @param {string} actionType - 'reset' or 'time-change' to indicate the purpose of the password request.
+         */
+        function showPasswordModal(actionType) {
+            currentPasswordAction = actionType; // Set the action type
+            passwordModal.classList.remove('hidden');
+            passwordInput.value = ''; // Clear previous input
+            passwordError.classList.add('hidden'); // Hide error message
+            passwordInput.focus(); // Focus on the input field
+        }
+
+        /**
+         * Hides the password verification modal.
+         */
+        function hidePasswordModal() {
+            passwordModal.classList.add('hidden');
+            // Clear pending values if the modal is closed without action
+            pendingTimeChangeValue = null;
+            pendingTimeUnit = null;
+            currentPasswordAction = null;
+        }
+
+        /**
+         * Handles the password submission from the modal.
+         */
+        function handlePasswordSubmit() {
+            const enteredPassword = passwordInput.value;
+            if (enteredPassword === RESET_PASSWORD) {
+                if (currentPasswordAction === 'reset') {
+                    performReset();
+                } else if (currentPasswordAction === 'time-change') {
+                    // Apply the pending time change after successful verification
+                    // It's important to set the input fields first, then apply the value
+                    // to ensure the UI reflects the change before applyTimerValue is called.
+                    timeInput.value = pendingTimeChangeValue;
+                    unitSelect.value = pendingTimeUnit;
+                    applyTimerValue(pendingTimeChangeValue, pendingTimeUnit);
+                }
+                hidePasswordModal();
+            } else {
+                passwordError.classList.remove('hidden');
+            }
         }
 
         /**
@@ -226,18 +348,78 @@
             unitSelect.disabled = false;
         }
 
+        /**
+         * Updates the current date display.
+         */
+        function updateCurrentDate() {
+            const now = new Date();
+            // Format for California (America/Los_Angeles) time
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit', 
+                timeZoneName: 'short',
+                timeZone: 'America/Los_Angeles' 
+            };
+            currentDateDisplay.textContent = now.toLocaleString('en-US', options);
+        }
+
+        /**
+         * Initializes the timer on page load, checking for a new day and loading last set time.
+         */
+        function initializeTimerOnLoad() {
+            const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+            const lastAccessDate = localStorage.getItem(LAST_ACCESS_DATE_KEY);
+            const storedInitialTime = JSON.parse(localStorage.getItem(INITIAL_TIMER_VALUE_KEY));
+
+            if (today !== lastAccessDate) {
+                // New day, set to 30 minutes automatically
+                timeInput.value = 30; // Set input field for display
+                unitSelect.value = 'minutes'; // Set unit field for display
+                applyTimerValue(30, 'minutes'); // Directly apply the value without password
+                localStorage.setItem(LAST_ACCESS_DATE_KEY, today);
+            } else if (storedInitialTime) {
+                // Same day, load last set time by the user
+                timeInput.value = storedInitialTime.value; // Set input field for display
+                unitSelect.value = storedInitialTime.unit; // Set unit field for display
+                applyTimerValue(parseInt(storedInitialTime.value, 10), storedInitialTime.unit); // Directly apply
+            } else {
+                // No previous setting, or invalid, default to 0
+                applyTimerValue(0, 'minutes'); // Default to 0 without password
+            }
+        }
+
         // --- Event Listeners ---
-        timeInput.addEventListener('input', setTimer);
-        unitSelect.addEventListener('change', setTimer);
+        // Changed these to trigger the password modal for manual changes
+        timeInput.addEventListener('change', handleManualTimeChange); // 'change' fires when value is committed (e.g., blur, Enter)
+        unitSelect.addEventListener('change', handleManualTimeChange);
+        
         startBtn.addEventListener('click', startTimer);
         stopBtn.addEventListener('click', stopTimer);
-        resetBtn.addEventListener('click', resetTimer);
+        // Modified reset button to show modal with 'reset' action type
+        resetBtn.addEventListener('click', () => showPasswordModal('reset')); 
+
+        // Modal button event listeners
+        modalSubmitBtn.addEventListener('click', handlePasswordSubmit);
+        modalCancelBtn.addEventListener('click', hidePasswordModal);
+        passwordInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                handlePasswordSubmit();
+            }
+        });
 
         // --- Initial State ---
         // Set initial button states on page load
         startBtn.disabled = true;
         stopBtn.disabled = true;
-        updateDisplay(); // Initialize display
+        
+        initializeTimerOnLoad(); // Call this to set initial timer based on date and localStorage
+        updateCurrentDate(); // Initialize current date display
+        setInterval(updateCurrentDate, 1000); // Update the date every second to keep it current
     </script>
 
 </body>

@@ -79,25 +79,26 @@
     <!-- Font for digital display: Orbitron is specifically imported for the timer numbers. -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 
-    <!-- Firebase SDKs: These scripts initialize Firebase services (App, Firestore) -->
+    <!-- Firebase SDKs: These scripts initialize Firebase services (App, Firestore, Auth) -->
     <script type="module">
         // Import necessary Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global Firebase variables: These are made available globally for the main script to use.
         window.firebaseApp = null; // Stores the Firebase app instance
         window.db = null; // Stores the Firestore database instance
-        window.currentUserId = 'singleUserTimer'; // Fixed user ID as per requirement (no multi-user support needed)
-        window.isAuthReady = true; // Set to true as authentication is not dynamic for this single-user setup
+        window.auth = null; // Stores the Firebase Auth instance
+        window.currentUserId = null; // Will store the authenticated user's ID
+        window.isAuthReady = false; // Flag to indicate if authentication is complete
 
-        // Expose Firestore functions to the global window object: This is crucial for the main script
-        // to call Firestore methods like doc(), getDoc(), setDoc(), updateDoc().
+        // Expose Firestore and Tone.js functions to the global window object
         window.doc = doc;
         window.getDoc = getDoc;
         window.setDoc = setDoc;
         window.updateDoc = updateDoc;
-        window.Tone = Tone; // Expose Tone.js to window as well for consistency in usage
+        window.Tone = Tone; 
 
         // Initialize Firebase application
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // Get app ID from environment or use default
@@ -111,7 +112,6 @@
         }
 
         // Ensure projectId is present. If not, provide a placeholder to prevent initialization errors.
-        // This is a workaround for cases where __firebase_config might be incomplete.
         if (!firebaseConfig.projectId) {
             console.warn("Firebase 'projectId' not found in __firebase_config. Using a placeholder 'your-project-id'. " +
                          "Please ensure __firebase_config is correctly set in your environment for full functionality.");
@@ -120,15 +120,37 @@
 
         window.firebaseApp = initializeApp(firebaseConfig); // Initialize the Firebase app
         window.db = getFirestore(window.firebaseApp); // Get the Firestore instance
+        window.auth = getAuth(window.firebaseApp); // Get the Firebase Auth instance
 
-        // Log Firebase initialization status for debugging
-        console.log("Firebase initialized for single user. User ID:", window.currentUserId);
-        
-        // Trigger initial load immediately since authentication is 'ready' (fixed user ID)
-        // This function will handle loading the timer state from Firestore.
-        if (typeof window.initializeTimerOnLoad === 'function') {
-            window.initializeTimerOnLoad();
-        }
+        // Authenticate user: Listen for auth state changes to set currentUserId and trigger app initialization
+        onAuthStateChanged(window.auth, async (user) => {
+            if (user) {
+                // If a user is already authenticated (e.g., returning anonymous user)
+                window.currentUserId = user.uid;
+            } else {
+                // If no user is authenticated, sign in anonymously
+                try {
+                    if (typeof __initial_auth_token !== 'undefined') {
+                        // Use custom token if provided by the environment
+                        await signInWithCustomToken(window.auth, __initial_auth_token);
+                    } else {
+                        // Otherwise, sign in anonymously
+                        await signInAnonymously(window.auth);
+                    }
+                    window.currentUserId = window.auth.currentUser?.uid; // Set user ID after successful sign-in
+                } catch (error) {
+                    console.error("Firebase authentication error:", error);
+                    // Fallback to a random ID if authentication fails, though persistence won't work
+                    window.currentUserId = crypto.randomUUID(); 
+                }
+            }
+            window.isAuthReady = true; // Set auth ready flag
+            console.log("Firebase Auth Ready. User ID:", window.currentUserId);
+            // Trigger initial load of the timer state now that Firebase Auth is ready
+            if (typeof window.initializeTimerOnLoad === 'function') {
+                window.initializeTimerOnLoad();
+            }
+        });
     </script>
 </head>
 <!-- Body of the application with Tailwind CSS classes for layout and styling -->
@@ -235,7 +257,8 @@
         // Constants for Firestore paths: Defines where timer data is stored in Firestore
         const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // Application ID from environment
         // Path to the Firestore document where the single user's timer state is stored
-        const TIMER_STATE_COLLECTION_PATH = `artifacts/${APP_ID}/users/${window.currentUserId}/timerState`; 
+        // This path now uses the dynamically assigned anonymous user ID
+        const TIMER_STATE_COLLECTION_PATH = `artifacts/${APP_ID}/users`; 
 
         // Variables for password verification context: Helps determine which action triggered the password modal
         let currentPasswordAction = null; // Can be 'reset' or 'time-change'
@@ -282,7 +305,7 @@
             }
             try {
                 // Get a reference to the specific Firestore document for the timer state
-                const timerDocRef = window.doc(window.db, TIMER_STATE_COLLECTION_PATH, 'data');
+                const timerDocRef = window.doc(window.db, TIMER_STATE_COLLECTION_PATH, window.currentUserId, 'timerState', 'data');
                 // Set (or update) the document with the current timer data.
                 // `merge: true` ensures that only specified fields are updated, leaving others intact.
                 await window.setDoc(timerDocRef, {
@@ -525,7 +548,7 @@
 
             try {
                 // Get a reference to the Firestore document for the timer state
-                const timerDocRef = window.doc(window.db, TIMER_STATE_COLLECTION_PATH, 'data');
+                const timerDocRef = window.doc(window.db, TIMER_STATE_COLLECTION_PATH, window.currentUserId, 'timerState', 'data');
                 // Fetch the document snapshot
                 const docSnap = await window.getDoc(timerDocRef);
                 if (docSnap.exists()) {

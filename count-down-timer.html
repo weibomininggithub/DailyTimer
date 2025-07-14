@@ -4,140 +4,197 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Countdown Timer Application</title>
-    <!-- Tailwind CSS for styling -->
+    <!-- Tailwind CSS for styling: A utility-first CSS framework for rapid UI development. -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Tone.js for sound -->
+    <!-- Tone.js for sound: A web audio framework for creating interactive music and audio in the browser. -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
-    <!-- Google Fonts: Inter -->
+    <!-- Google Fonts: Inter - A versatile typeface family for screen reading. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <style>
-        /* Custom styles for the timer application */
+        /* Custom styles for the timer application to enhance its visual appeal */
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', sans-serif; /* Applying Inter font to the entire body */
         }
         /* Custom font for the timer display to give it a digital clock feel */
         .font-digital {
-            font-family: 'Orbitron', sans-serif; /* A good-looking digital-style font */
+            font-family: 'Orbitron', sans-serif; /* Orbitron is chosen for its futuristic, digital look */
         }
-        /* Adding a subtle background pattern */
+        /* Adding a subtle background pattern to the body for visual texture */
         body {
-            background-color: #111827; /* Dark gray background */
-            background-image: radial-gradient(#374151 1px, transparent 1px);
-            background-size: 16px 16px;
+            background-color: #111827; /* Dark gray background for a modern, deep feel */
+            background-image: radial-gradient(#374151 1px, transparent 1px); /* Creates a subtle dot pattern */
+            background-size: 16px 16px; /* Size of the background pattern dots */
         }
-        /* Styling for the main timer container for a neomorphic look */
+        /* Styling for the main timer container for a neomorphic (soft UI) look */
         .timer-container {
-            background: #1f2937; /* Gray-800 */
-            border-radius: 2rem;
-            box-shadow: 12px 12px 24px #111827, -12px -12px 24px #374151;
+            background: #1f2937; /* Gray-800, slightly lighter than body for contrast */
+            border-radius: 2rem; /* Rounded corners for a softer appearance */
+            box-shadow: 12px 12px 24px #111827, -12px -12px 24px #374151; /* Neomorphic shadow effect */
         }
-        /* Button styles for a consistent and modern look */
+        /* Button styles for a consistent and modern look with interactive effects */
         .btn {
-            transition: all 0.2s ease-in-out;
+            transition: all 0.2s ease-in-out; /* Smooth transition for hover and active states */
         }
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transform: translateY(-2px); /* Lifts the button slightly on hover */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Adds a subtle shadow on hover */
         }
         .btn:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transform: translateY(0); /* Pushes the button back down on click */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Reduces shadow on click */
         }
-        /* Animation for the timer finished alert */
+        /* Animation for the timer finished alert to draw attention */
         @keyframes flash {
-            0%, 100% { color: #34d399; } /* Emerald 400 */
-            50% { color: #f87171; } /* Red 400 */
+            0%, 100% { color: #34d399; } /* Emerald 400 - starting and ending color */
+            50% { color: #f87171; } /* Red 400 - flashes to this color */
         }
         .timer-finished {
-            animation: flash 1s infinite;
+            animation: flash 1s infinite; /* Applies the flash animation infinitely */
         }
-        /* Modal specific styles */
+        /* Modal specific styles for the password verification popup */
         .modal-overlay {
-            position: fixed;
+            position: fixed; /* Fixed position to cover the entire viewport */
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent black background */
+            display: flex; /* Uses flexbox for centering content */
+            justify-content: center; /* Centers horizontally */
+            align-items: center; /* Centers vertically */
+            z-index: 1000; /* Ensures the modal is on top of other content */
         }
         .modal-content {
-            background: #1f2937;
-            padding: 2rem;
-            border-radius: 1rem;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
-            max-width: 90%;
-            width: 400px;
-            text-align: center;
+            background: #1f2937; /* Dark background for the modal content */
+            padding: 2rem; /* Padding inside the modal */
+            border-radius: 1rem; /* Rounded corners for the modal box */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5); /* Shadow for depth */
+            max-width: 90%; /* Maximum width relative to viewport */
+            width: 400px; /* Fixed width for the modal */
+            text-align: center; /* Centers text inside the modal */
         }
     </style>
-    <!-- Font for digital display -->
+    <!-- Font for digital display: Orbitron is specifically imported for the timer numbers. -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDKs: These scripts initialize Firebase services (App, Firestore) -->
+    <script type="module">
+        // Import necessary Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase variables: These are made available globally for the main script to use.
+        window.firebaseApp = null; // Stores the Firebase app instance
+        window.db = null; // Stores the Firestore database instance
+        window.currentUserId = 'singleUserTimer'; // Fixed user ID as per requirement (no multi-user support needed)
+        window.isAuthReady = true; // Set to true as authentication is not dynamic for this single-user setup
+
+        // Expose Firestore functions to the global window object: This is crucial for the main script
+        // to call Firestore methods like doc(), getDoc(), setDoc(), updateDoc().
+        window.doc = doc;
+        window.getDoc = getDoc;
+        window.setDoc = setDoc;
+        window.updateDoc = updateDoc;
+        window.Tone = Tone; // Expose Tone.js to window as well for consistency in usage
+
+        // Initialize Firebase application
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // Get app ID from environment or use default
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}'); // Parse Firebase config
+
+        window.firebaseApp = initializeApp(firebaseConfig); // Initialize the Firebase app
+        window.db = getFirestore(window.firebaseApp); // Get the Firestore instance
+
+        // Log Firebase initialization status for debugging
+        console.log("Firebase initialized for single user. User ID:", window.currentUserId);
+        
+        // Trigger initial load immediately since authentication is 'ready' (fixed user ID)
+        // This function will handle loading the timer state from Firestore.
+        if (typeof window.initializeTimerOnLoad === 'function') {
+            window.initializeTimerOnLoad();
+        }
+    </script>
 </head>
+<!-- Body of the application with Tailwind CSS classes for layout and styling -->
 <body class="bg-gray-900 flex items-center justify-center min-h-screen relative">
 
-    <!-- Current Date Display -->
+    <!-- Current Date Display: Shows the current date and time in California time zone. -->
     <div id="current-date" class="absolute top-4 left-4 text-white text-sm opacity-75"></div>
 
-    <!-- Main container for the timer -->
+    <!-- Main container for the timer application -->
     <div class="timer-container w-full max-w-lg p-10 text-center">
         <h1 class="text-4xl font-bold text-white mb-8">Countdown Timer</h1>
 
-        <!-- Input for setting the timer -->
+        <!-- Input section for setting the timer duration -->
         <div class="mb-8 flex justify-center items-center space-x-4">
-            <input type="number" id="time-input" placeholder="Enter time" class="bg-gray-700 text-white text-center w-40 px-4 py-3 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 transition">
-            <select id="unit-select" class="bg-gray-700 text-white px-4 py-3 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 transition">
+            <!-- Input field for time value -->
+            <input type="number" id="time-input" placeholder="Enter time" 
+                   class="bg-gray-700 text-white text-center w-40 px-4 py-3 rounded-lg text-lg 
+                          focus:outline-none focus:ring-2 focus:ring-cyan-400 transition">
+            <!-- Dropdown for selecting time unit (minutes/seconds) -->
+            <select id="unit-select" 
+                    class="bg-gray-700 text-white px-4 py-3 rounded-lg text-lg 
+                           focus:outline-none focus:ring-2 focus:ring-cyan-400 transition">
                 <option value="minutes">Minutes</option>
                 <option value="seconds">Seconds</option>
             </select>
         </div>
         
-        <!-- Timer display with its own background -->
-        <div id="timer-display" class="bg-gray-800 p-4 rounded-2xl text-7xl font-digital text-emerald-400 mb-10 tracking-wider inline-block shadow-inner">
+        <!-- Timer display area: Shows the countdown in HH:MM:SS format -->
+        <div id="timer-display" 
+             class="bg-gray-800 p-4 rounded-2xl text-7xl font-digital text-emerald-400 mb-10 
+                    tracking-wider inline-block shadow-inner">
             00:00:00
         </div>
 
-        <!-- Control buttons -->
+        <!-- Control buttons for Start, Stop, and Reset actions -->
         <div class="flex justify-center space-x-5">
             <!-- Start/Resume Button -->
-            <button id="start-btn" class="btn bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full text-xl shadow-lg">
+            <button id="start-btn" 
+                    class="btn bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full text-xl shadow-lg">
                 Start
             </button>
             <!-- Stop/Pause Button -->
-            <button id="stop-btn" class="btn bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-8 rounded-full text-xl shadow-lg">
+            <button id="stop-btn" 
+                    class="btn bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-8 rounded-full text-xl shadow-lg">
                 Stop
             </button>
-            <!-- Reset Button -->
-            <button id="reset-btn" class="btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-4 px-8 rounded-full text-xl shadow-lg">
+            <!-- Reset Button (requires password verification) -->
+            <button id="reset-btn" 
+                    class="btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-4 px-8 rounded-full text-xl shadow-lg">
                 Reset
             </button>
         </div>
     </div>
 
-    <!-- Password Verification Modal -->
+    <!-- Password Verification Modal: Hidden by default, appears when sensitive actions are attempted -->
     <div id="password-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h2 class="text-white text-2xl font-bold mb-6">Enter Password</h2>
-            <input type="password" id="password-input" placeholder="Password" class="bg-gray-700 text-white text-center w-full px-4 py-3 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 transition mb-4">
+            <!-- Input field for password -->
+            <input type="password" id="password-input" placeholder="Password" 
+                   class="bg-gray-700 text-white text-center w-full px-4 py-3 rounded-lg text-lg 
+                          focus:outline-none focus:ring-2 focus:ring-cyan-400 transition mb-4">
+            <!-- Error message for incorrect password -->
             <p id="password-error" class="text-red-400 text-sm mb-4 hidden">Incorrect password. Please try again.</p>
             <div class="flex justify-center space-x-4">
-                <button id="modal-submit-btn" class="btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg">
+                <!-- Submit button for the password -->
+                <button id="modal-submit-btn" 
+                        class="btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg">
                     Submit
                 </button>
-                <button id="modal-cancel-btn" class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg">
+                <!-- Cancel button for the password modal -->
+                <button id="modal-cancel-btn" 
+                        class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg">
                     Cancel
                 </button>
             </div>
         </div>
     </div>
 
-    <script>
-        // DOM element references
+    <script type="module">
+        // DOM element references: Getting references to HTML elements for manipulation
         const timerDisplay = document.getElementById('timer-display');
         const timeInput = document.getElementById('time-input');
         const unitSelect = document.getElementById('unit-select');
@@ -146,31 +203,33 @@
         const resetBtn = document.getElementById('reset-btn');
         const currentDateDisplay = document.getElementById('current-date');
 
-        // Modal DOM elements
+        // Modal DOM elements: References for the password verification modal components
         const passwordModal = document.getElementById('password-modal');
         const passwordInput = document.getElementById('password-input');
         const passwordError = document.getElementById('password-error');
         const modalSubmitBtn = document.getElementById('modal-submit-btn');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
 
-        // Timer state variables
-        let timerInterval = null;
-        let totalSeconds = 0;
-        let isRunning = false;
-        let initialTime = 0; // Stores the last user-set time for reset
-        const RESET_PASSWORD = "baba&mama"; // The password for resetting
+        // Timer state variables: Variables to manage the timer's behavior and data
+        let timerInterval = null; // Stores the interval ID for clearing the timer
+        let totalSeconds = 0; // Current total seconds remaining on the timer
+        let isRunning = false; // Flag to indicate if the timer is currently running
+        let initialTime = 0; // Stores the time the timer was last set to (for reset functionality)
+        const RESET_PASSWORD = "baba&mama"; // The fixed password required for sensitive actions
 
-        // Constants for localStorage keys
-        const LAST_ACCESS_DATE_KEY = 'lastAccessDate';
-        const INITIAL_TIMER_VALUE_KEY = 'initialTimerValue'; // To store the last set time by user
+        // Constants for Firestore paths: Defines where timer data is stored in Firestore
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // Application ID from environment
+        // Path to the Firestore document where the single user's timer state is stored
+        const TIMER_STATE_COLLECTION_PATH = `artifacts/${APP_ID}/users/${window.currentUserId}/timerState`; 
 
-        // New variables for password verification context
-        let currentPasswordAction = null; // 'reset' or 'time-change'
-        let pendingTimeChangeValue = null;
-        let pendingTimeUnit = null;
+        // Variables for password verification context: Helps determine which action triggered the password modal
+        let currentPasswordAction = null; // Can be 'reset' or 'time-change'
+        let pendingTimeChangeValue = null; // Stores the time value pending a password verification
+        let pendingTimeUnit = null; // Stores the time unit pending a password verification
 
         /**
          * Formats a number to be two digits by adding a leading zero if needed.
+         * E.g., 5 becomes "05", 12 remains "12".
          * @param {number} num - The number to format.
          * @returns {string} The formatted two-digit string.
          */
@@ -179,7 +238,8 @@
         }
 
         /**
-         * Updates the timer display with the current time.
+         * Updates the timer display with the current time (totalSeconds).
+         * Calculates hours, minutes, and seconds from totalSeconds and formats them.
          */
         function updateDisplay() {
             const hours = Math.floor(totalSeconds / 3600);
@@ -190,158 +250,215 @@
         }
 
         /**
-         * Updates the timer's internal state and display based on provided values.
-         * This function does NOT trigger password verification. It's used internally
-         * after verification or for automatic initialization.
-         * @param {number} timeValue - The numerical value for the timer.
-         * @param {string} unit - The unit ('minutes' or 'seconds').
+         * Saves the current timer state to Firestore.
+         * This function is asynchronous as it interacts with the database.
+         * It stores the current countdown, the initial set time, input field values, and the last access date.
+         * @param {number} currentSeconds - The current remaining time in seconds.
+         * @param {number} initialSetTime - The initial time the timer was set to.
+         * @param {string} timeInputValue - The value in the time input field.
+         * @param {string} unitSelectValue - The value in the unit select field.
+         * @param {string} lastAccessDate - The date of last access (YYYY-MM-DD format).
          */
-        function applyTimerValue(timeValue, unit) {
-            stopTimer(); // Stop any existing timer
-            timerDisplay.classList.remove('timer-finished'); // Remove finished animation
-
-            if (isNaN(timeValue) || timeValue <= 0) {
-                totalSeconds = 0;
-                initialTime = 0;
-                timeInput.value = ''; // Clear input if invalid
-            } else {
-                if (unit === 'minutes') {
-                    totalSeconds = timeValue * 60;
-                } else {
-                    totalSeconds = timeValue;
-                }
-                initialTime = totalSeconds;
+        async function saveTimerStateToFirestore(currentSeconds, initialSetTime, timeInputValue, unitSelectValue, lastAccessDate) {
+            // Ensure Firebase is ready and a user ID is set before attempting to save
+            if (!window.isAuthReady || !window.currentUserId) {
+                console.warn("Firestore not ready or user ID not set. Cannot save timer state.");
+                return;
             }
-            updateDisplay();
-            startBtn.disabled = (totalSeconds === 0);
-
-            // Store the initial time in localStorage
-            localStorage.setItem(INITIAL_TIMER_VALUE_KEY, JSON.stringify({
-                value: timeValue, // Store the actual value passed, not from input directly
-                unit: unit
-            }));
+            try {
+                // Get a reference to the specific Firestore document for the timer state
+                const timerDocRef = window.doc(window.db, TIMER_STATE_COLLECTION_PATH, 'data');
+                // Set (or update) the document with the current timer data.
+                // `merge: true` ensures that only specified fields are updated, leaving others intact.
+                await window.setDoc(timerDocRef, {
+                    currentSeconds: currentSeconds,
+                    initialSetTime: initialSetTime,
+                    timeInputValue: timeInputValue,
+                    unitSelectValue: unitSelectValue,
+                    lastAccessDate: lastAccessDate
+                }, { merge: true });
+                console.log("Timer state saved to Firestore.");
+            } catch (error) {
+                console.error("Error saving timer state to Firestore:", error);
+            }
         }
 
         /**
-         * Starts or resumes the countdown.
+         * Updates the timer's internal state (totalSeconds, initialTime) and display
+         * based on provided time value and unit. This function is called internally
+         * after a successful password verification or during automatic initialization.
+         * It does NOT trigger password verification itself.
+         * @param {number} timeValue - The numerical value for the timer (e.g., 30 for 30 minutes).
+         * @param {string} unit - The unit of the timeValue ('minutes' or 'seconds').
+         */
+        function applyTimerValue(timeValue, unit) {
+            stopTimer(); // Always stop any running timer before applying a new value
+            timerDisplay.classList.remove('timer-finished'); // Remove any flashing animation
+
+            if (isNaN(timeValue) || timeValue <= 0) {
+                // If input is invalid (not a number or zero/negative), reset to 0
+                totalSeconds = 0;
+                initialTime = 0;
+                timeInput.value = ''; // Clear the input field for clarity
+            } else {
+                // Calculate total seconds based on the selected unit
+                if (unit === 'minutes') {
+                    totalSeconds = timeValue * 60;
+                } else { // 'seconds'
+                    totalSeconds = timeValue;
+                }
+                initialTime = totalSeconds; // Set initialTime for reset functionality
+            }
+            updateDisplay(); // Update the visual display of the timer
+            startBtn.disabled = (totalSeconds === 0); // Disable start button if time is zero
+
+            // Save the new state to Firestore immediately after applying
+            const today = new Date().toISOString().slice(0, 10);
+            saveTimerStateToFirestore(totalSeconds, initialTime, timeInput.value, unitSelect.value, today);
+        }
+
+        /**
+         * Starts or resumes the countdown timer.
+         * Prevents starting if already running or if totalSeconds is zero.
          */
         function startTimer() {
-            if (isRunning || totalSeconds <= 0) return;
+            if (isRunning || totalSeconds <= 0) return; // Do nothing if already running or no time set
             
-            // Start Tone.js context on user action
-            Tone.start();
+            window.Tone.start(); // Start Tone.js audio context on user interaction for sound playback
 
-            isRunning = true;
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
-            timeInput.disabled = true;
-            unitSelect.disabled = true;
+            isRunning = true; // Set running flag
+            startBtn.disabled = true; // Disable start button
+            stopBtn.disabled = false; // Enable stop button
+            timeInput.disabled = true; // Disable time input during countdown
+            unitSelect.disabled = true; // Disable unit select during countdown
 
+            // Set up an interval to decrement the timer every second
             timerInterval = setInterval(() => {
-                totalSeconds--;
-                updateDisplay();
+                totalSeconds--; // Decrement seconds
+                updateDisplay(); // Update the display
+
+                // Save current totalSeconds to Firestore every second for persistence
+                const today = new Date().toISOString().slice(0, 10);
+                saveTimerStateToFirestore(totalSeconds, initialTime, timeInput.value, unitSelect.value, today);
 
                 if (totalSeconds <= 0) {
-                    finishTimer();
+                    finishTimer(); // If time runs out, call finishTimer
                 }
-            }, 1000);
+            }, 1000); // Interval runs every 1000 milliseconds (1 second)
         }
 
         /**
          * Stops or pauses the timer.
+         * Clears the interval and updates button states.
          */
         function stopTimer() {
-            if (!isRunning) return;
-            isRunning = false;
-            clearInterval(timerInterval);
-            startBtn.disabled = (totalSeconds === 0);
-            stopBtn.disabled = true;
-            timeInput.disabled = false;
-            unitSelect.disabled = false;
+            if (!isRunning) return; // Do nothing if timer is not running
+            isRunning = false; // Set running flag to false
+            clearInterval(timerInterval); // Stop the countdown interval
+            // Save current totalSeconds to Firestore when stopping/pausing
+            const today = new Date().toISOString().slice(0, 10);
+            saveTimerStateToFirestore(totalSeconds, initialTime, timeInput.value, unitSelect.value, today);
+            startBtn.disabled = (totalSeconds === 0); // Enable start if time > 0
+            stopBtn.disabled = true; // Disable stop button
+            timeInput.disabled = false; // Enable time input
+            unitSelect.disabled = false; // Enable unit select
         }
 
         /**
          * Performs the actual reset of the timer to its initial set value.
-         * This function does NOT trigger password verification.
+         * This function is called *after* password verification.
          */
         function performReset() {
-            stopTimer();
-            timerDisplay.classList.remove('timer-finished');
-            totalSeconds = initialTime; // Reset to the initial time set by the user
-            updateDisplay();
-            startBtn.disabled = (totalSeconds === 0);
+            stopTimer(); // Stop any active timer
+            timerDisplay.classList.remove('timer-finished'); // Remove any flashing animation
+            totalSeconds = initialTime; // Reset totalSeconds to the value it was last set to
+            updateDisplay(); // Update the display to show the reset time
+            startBtn.disabled = (totalSeconds === 0); // Disable start button if reset to zero
+            // After reset, update current saved seconds in Firestore to match initial time
+            const today = new Date().toISOString().slice(0, 10);
+            saveTimerStateToFirestore(totalSeconds, initialTime, timeInput.value, unitSelect.value, today);
         }
 
         /**
-         * Handles the manual input/change of time or unit, prompting for password.
+         * Handles the manual input/change of time or unit in the input fields.
+         * This function triggers the password verification modal.
          */
         function handleManualTimeChange() {
-            // Store the current (pre-change) values from the input fields
+            // Store the current values from the input fields as pending changes
             pendingTimeChangeValue = parseInt(timeInput.value, 10);
             pendingTimeUnit = unitSelect.value;
+            // Show the password modal, indicating the action is 'time-change'
             showPasswordModal('time-change');
         }
 
         /**
-         * Shows the password verification modal.
-         * @param {string} actionType - 'reset' or 'time-change' to indicate the purpose of the password request.
+         * Displays the password verification modal.
+         * @param {string} actionType - 'reset' or 'time-change' to specify the context of the password request.
          */
         function showPasswordModal(actionType) {
-            currentPasswordAction = actionType; // Set the action type
-            passwordModal.classList.remove('hidden');
-            passwordInput.value = ''; // Clear previous input
-            passwordError.classList.add('hidden'); // Hide error message
-            passwordInput.focus(); // Focus on the input field
+            currentPasswordAction = actionType; // Set the action type for modal submission logic
+            passwordModal.classList.remove('hidden'); // Make the modal visible
+            passwordInput.value = ''; // Clear any previously entered password
+            passwordError.classList.add('hidden'); // Hide any previous error messages
+            passwordInput.focus(); // Automatically focus on the password input field
         }
 
         /**
          * Hides the password verification modal.
+         * Also clears any pending action data.
          */
         function hidePasswordModal() {
-            passwordModal.classList.add('hidden');
-            // Clear pending values if the modal is closed without action
+            passwordModal.classList.add('hidden'); // Hide the modal
+            // Clear pending values and action type when modal is closed
             pendingTimeChangeValue = null;
             pendingTimeUnit = null;
             currentPasswordAction = null;
         }
 
         /**
-         * Handles the password submission from the modal.
+         * Handles the submission of the password from the modal.
+         * Checks if the entered password is correct and performs the corresponding action.
          */
         function handlePasswordSubmit() {
             const enteredPassword = passwordInput.value;
             if (enteredPassword === RESET_PASSWORD) {
+                // If password is correct, perform the stored action
                 if (currentPasswordAction === 'reset') {
-                    performReset();
+                    performReset(); // Call the reset function
                 } else if (currentPasswordAction === 'time-change') {
                     // Apply the pending time change after successful verification
-                    // It's important to set the input fields first, then apply the value
-                    // to ensure the UI reflects the change before applyTimerValue is called.
+                    // First, update the input fields to reflect the new values
                     timeInput.value = pendingTimeChangeValue;
                     unitSelect.value = pendingTimeUnit;
+                    // Then, apply the new timer value
                     applyTimerValue(pendingTimeChangeValue, pendingTimeUnit);
                 }
-                hidePasswordModal();
+                hidePasswordModal(); // Hide the modal after successful action
             } else {
-                passwordError.classList.remove('hidden');
+                passwordError.classList.remove('hidden'); // Show error message for incorrect password
             }
         }
 
         /**
-         * Handles the timer finishing.
+         * Handles the timer finishing (countdown reaches zero).
+         * Stops the timer, plays a sound, shows a visual notification, and resets button/input states.
          */
         function finishTimer() {
-            clearInterval(timerInterval);
-            isRunning = false;
-            // Play a sound notification
-            const synth = new Tone.Synth().toDestination();
-            synth.triggerAttackRelease("C5", "8n", Tone.now());
-            synth.triggerAttackRelease("G5", "8n", Tone.now() + 0.2);
+            clearInterval(timerInterval); // Stop the countdown
+            isRunning = false; // Set running flag to false
+            // When timer finishes, set current saved seconds to 0 in Firestore
+            const today = new Date().toISOString().slice(0, 10);
+            saveTimerStateToFirestore(0, initialTime, timeInput.value, unitSelect.value, today);
+            
+            // Play a sound notification using Tone.js
+            const synth = new window.Tone.Synth().toDestination();
+            synth.triggerAttackRelease("C5", "8n", window.Tone.now()); // Play C5 note
+            synth.triggerAttackRelease("G5", "8n", window.Tone.now() + 0.2); // Play G5 note slightly after
 
-            // Visual notification
+            // Visual notification: Add a class to make the timer display flash
             timerDisplay.classList.add('timer-finished');
 
-            // Reset buttons and inputs
+            // Reset button and input states after timer finishes
             startBtn.disabled = true;
             stopBtn.disabled = true;
             timeInput.disabled = false;
@@ -349,76 +466,115 @@
         }
 
         /**
-         * Updates the current date display.
+         * Updates the current date and time display in California time.
+         * This function is called every second to keep the display up-to-date.
          */
         function updateCurrentDate() {
             const now = new Date();
-            // Format for California (America/Los_Angeles) time
+            // Options for formatting the date and time to California (America/Los_Angeles) timezone
             const options = { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric', 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit', 
-                timeZoneName: 'short',
-                timeZone: 'America/Los_Angeles' 
+                weekday: 'long', // Full weekday name (e.g., "Monday")
+                year: 'numeric', // Full year (e.g., "2023")
+                month: 'long', // Full month name (e.g., "July")
+                day: 'numeric', // Day of the month (e.g., "15")
+                hour: '2-digit', // Hour (e.g., "01" or "13")
+                minute: '2-digit', // Minute (e.g., "05")
+                second: '2-digit', // Second (e.g., "30")
+                timeZoneName: 'short', // Short timezone name (e.g., "PDT")
+                timeZone: 'America/Los_Angeles' // Specify California timezone
             };
             currentDateDisplay.textContent = now.toLocaleString('en-US', options);
         }
 
         /**
-         * Initializes the timer on page load, checking for a new day and loading last set time.
+         * Initializes the timer on page load.
+         * It checks for a new day to automatically set to 30 minutes,
+         * or loads the last saved state from Firestore for the same day.
+         * This function is made global (window.initializeTimerOnLoad) so it can be called
+         * by the Firebase initialization script once Firebase is ready.
          */
-        function initializeTimerOnLoad() {
-            const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-            const lastAccessDate = localStorage.getItem(LAST_ACCESS_DATE_KEY);
-            const storedInitialTime = JSON.parse(localStorage.getItem(INITIAL_TIMER_VALUE_KEY));
-
-            if (today !== lastAccessDate) {
-                // New day, set to 30 minutes automatically
-                timeInput.value = 30; // Set input field for display
-                unitSelect.value = 'minutes'; // Set unit field for display
-                applyTimerValue(30, 'minutes'); // Directly apply the value without password
-                localStorage.setItem(LAST_ACCESS_DATE_KEY, today);
-            } else if (storedInitialTime) {
-                // Same day, load last set time by the user
-                timeInput.value = storedInitialTime.value; // Set input field for display
-                unitSelect.value = storedInitialTime.unit; // Set unit field for display
-                applyTimerValue(parseInt(storedInitialTime.value, 10), storedInitialTime.unit); // Directly apply
-            } else {
-                // No previous setting, or invalid, default to 0
-                applyTimerValue(0, 'minutes'); // Default to 0 without password
+        window.initializeTimerOnLoad = async function() {
+            // Ensure Firebase is ready and the fixed user ID is set
+            if (!window.isAuthReady || !window.currentUserId) {
+                console.log("Firebase not ready or user ID not set during initialization. Retrying...");
+                // A small delay and retry could be added here if this was a common issue,
+                // but with isAuthReady being true by default, it's less likely.
+                return;
             }
-        }
 
-        // --- Event Listeners ---
-        // Changed these to trigger the password modal for manual changes
-        timeInput.addEventListener('change', handleManualTimeChange); // 'change' fires when value is committed (e.g., blur, Enter)
+            const today = new Date().toISOString().slice(0, 10); // Get today's date in YYYY-MM-DD format
+            let storedState = null; // Variable to hold data fetched from Firestore
+
+            try {
+                // Get a reference to the Firestore document for the timer state
+                const timerDocRef = window.doc(window.db, TIMER_STATE_COLLECTION_PATH, 'data');
+                // Fetch the document snapshot
+                const docSnap = await window.getDoc(timerDocRef);
+                if (docSnap.exists()) {
+                    // If document exists, get its data
+                    storedState = docSnap.data();
+                    console.log("Loaded state from Firestore:", storedState);
+                    // Log the last access date for debugging
+                    console.log("Last Access Date (from Firestore):", storedState.lastAccessDate);
+                } else {
+                    console.log("No timer state found in Firestore for this user.");
+                }
+            } catch (error) {
+                console.error("Error loading timer state from Firestore:", error);
+            }
+
+            // Determine initial timer state based on last access date and stored data
+            if (storedState && storedState.lastAccessDate === today) {
+                // If it's the same day as the last access, resume from the last saved state
+                totalSeconds = storedState.currentSeconds || 0; // Use stored current seconds
+                initialTime = storedState.initialSetTime || 0; // Use stored initial set time
+                timeInput.value = storedState.timeInputValue || ''; // Restore input field value
+                unitSelect.value = storedState.unitSelectValue || 'minutes'; // Restore unit select value
+                console.log("Resuming timer from saved state for today.");
+            } else {
+                // If it's a new day or no state found, initialize to 30 minutes automatically
+                console.log("New day or no stored state. Initializing to 30 minutes.");
+                timeInput.value = 30; // Set input field to 30
+                unitSelect.value = 'minutes'; // Set unit to minutes
+                totalSeconds = 30 * 60; // 30 minutes in seconds
+                initialTime = 30 * 60; // Set initialTime for reset
+                // Save this new initial state to Firestore
+                saveTimerStateToFirestore(totalSeconds, initialTime, timeInput.value, unitSelect.value, today);
+            }
+
+            updateDisplay(); // Ensure the timer display is updated with the loaded/initialized time
+            startBtn.disabled = (totalSeconds === 0); // Disable start button if timer is 0
+            stopBtn.disabled = !isRunning; // Stop button disabled if timer is not running
+        };
+
+        // --- Event Listeners ---: Attaching functions to user interactions
+        // 'change' event fires when the input value is committed (e.g., blur, Enter)
+        timeInput.addEventListener('change', handleManualTimeChange); 
         unitSelect.addEventListener('change', handleManualTimeChange);
         
-        startBtn.addEventListener('click', startTimer);
-        stopBtn.addEventListener('click', stopTimer);
-        // Modified reset button to show modal with 'reset' action type
+        startBtn.addEventListener('click', startTimer); // Start button click
+        stopBtn.addEventListener('click', stopTimer); // Stop button click
+        // Reset button click triggers the password modal
         resetBtn.addEventListener('click', () => showPasswordModal('reset')); 
 
-        // Modal button event listeners
-        modalSubmitBtn.addEventListener('click', handlePasswordSubmit);
-        modalCancelBtn.addEventListener('click', hidePasswordModal);
+        // Modal button event listeners: For the password verification modal
+        modalSubmitBtn.addEventListener('click', handlePasswordSubmit); // Submit password
+        modalCancelBtn.addEventListener('click', hidePasswordModal); // Cancel password entry
+        // Allow pressing Enter key to submit password
         passwordInput.addEventListener('keypress', function(event) {
             if (event.key === 'Enter') {
                 handlePasswordSubmit();
             }
         });
 
-        // --- Initial State ---
-        // Set initial button states on page load
+        // --- Initial State ---: Setup on page load
+        // Initially disable start and stop buttons until a valid time is set/loaded
         startBtn.disabled = true;
         stopBtn.disabled = true;
         
-        initializeTimerOnLoad(); // Call this to set initial timer based on date and localStorage
-        updateCurrentDate(); // Initialize current date display
+        // The initializeTimerOnLoad function is called by the Firebase module script
+        // after Firebase is ready, ensuring data persistence works correctly.
+        updateCurrentDate(); // Initialize current date display immediately on load
         setInterval(updateCurrentDate, 1000); // Update the date every second to keep it current
     </script>
 
